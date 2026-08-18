@@ -2,7 +2,6 @@ package io.hkarling.transaction.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.catchThrowable;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.NestedTransactionNotSupportedException;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -60,15 +60,10 @@ class PropagationTest {
   }
 
   @Test
-  @DisplayName("NESTED 전파 속성을 시도해본다 — 기본 설정으로 되는지 확인")
-  void nestedThenFailBehavior() {
-    Throwable thrown = catchThrowable(() -> outerService.nestedThenFail("C"));
-
-    log.info("[NESTED] 던져진 예외 타입: {}", thrown.getClass().getName());
-    log.info("[NESTED] 메시지: {}", thrown.getMessage());
-
-    Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM propagation_log", Integer.class);
-    log.info("[NESTED] 바깥 롤백 후 남은 로그 수: {}", count);
+  @DisplayName("JPA 환경에서는 NESTED가 근본적으로 지원되지 않는다")
+  void nestedIsNotSupportedInJpaEnvironment() {
+    assertThatThrownBy(() -> outerService.nestedThenFail("C"))
+        .isInstanceOf(NestedTransactionNotSupportedException.class);
   }
 
 }

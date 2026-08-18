@@ -37,7 +37,7 @@
 
 ### Phase 1 — 단일 DB 트랜잭션 기초
 - [x] 1. `@Transactional` 없는 기본 이체 구현 → 뭐가 터지는지 확인 — [`docs/LOG001-chapter1.md`](docs/LOG001-chapter1.md)
-- [ ] 2. 격리 수준별 실험 (READ_UNCOMMITTED → SERIALIZABLE)
+- [x] 2. 격리 수준별 실험 (READ_UNCOMMITTED → SERIALIZABLE) — [`docs/LOG002-chapter2.md`](docs/LOG002-chapter2.md)
 - [ ] 3. 전파 속성 실험 (REQUIRED / REQUIRES_NEW / NESTED)
 - [ ] 4. 동시성 문제 재현 — 잔액 음수, Lost Update
 - [ ] 5. 낙관적 락 (`@Version`) + 재시도 전략

@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import javax.sql.DataSource;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+@Slf4j
 @Testcontainers
 @SpringBootTest
 class IsolationLevelTest {
@@ -35,26 +37,42 @@ class IsolationLevelTest {
   @Test
   @DisplayName("READ_COMMITTED는 같은 트랜잭션 안에서도 남이 커밋한 값을 다시 읽으면 바뀐다")
   void readCommittedAllowsNonRepeatableRead() throws Exception {
+    BigDecimal[] result = runNonRepeatableReadExperiment(Connection.TRANSACTION_READ_COMMITTED);
+
+    assertThat(result[0]).isEqualByComparingTo("10000");
+    assertThat(result[1]).isEqualByComparingTo("5000"); // 바뀐 값이 보임 (non-repeatable read)
+  }
+
+  @Test
+  @DisplayName("REPEATABLE_READ는 트랜잭션 시작 시점 스냅샷을 유지해 다시 읽어도 값이 안 바뀐다")
+  void repeatableReadPreventsNonRepeatableRead() throws Exception {
+    BigDecimal[] result = runNonRepeatableReadExperiment(Connection.TRANSACTION_REPEATABLE_READ);
+
+    assertThat(result[0]).isEqualByComparingTo("10000");
+    assertThat(result[1]).isEqualByComparingTo("10000"); // 원래 값 그대로 (스냅샷 유지)
+  }
+
+  private BigDecimal[] runNonRepeatableReadExperiment(int isolationLevel) throws InterruptedException, SQLException {
     long accountId = insertTestAccount("bob", "10000");
 
     CountDownLatch firstReadDone = new CountDownLatch(1);
     CountDownLatch updateCommitted = new CountDownLatch(1);
-
-    BigDecimal[] firstRead = new BigDecimal[1];
-    BigDecimal[] secondRead = new BigDecimal[1];
+    BigDecimal[] result = new BigDecimal[2];
 
     ExecutorService pool = Executors.newFixedThreadPool(2);
 
     pool.submit(() -> {
       try (Connection conn = dataSource.getConnection()) {
         conn.setAutoCommit(false);
-        conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+        conn.setTransactionIsolation(isolationLevel);
 
-        firstRead[0] = readBalance(conn, accountId);
+        result[0] = readBalance(conn, accountId);
+        log.info("[A] 첫 번째 읽기: {}", result[0]);
         firstReadDone.countDown();
 
         updateCommitted.await(5, TimeUnit.SECONDS);
-        secondRead[0] = readBalance(conn, accountId);
+        result[1] = readBalance(conn, accountId);
+        log.info("[A] 두 번째 읽기: {}", result[1]);
 
         conn.commit();
       } catch (Exception e) {
@@ -69,6 +87,7 @@ class IsolationLevelTest {
           conn.setAutoCommit(false);
           updateBalance(conn, accountId, "5000");
           conn.commit();
+          log.info("[B] 업데이트 커밋 완료");
         }
         updateCommitted.countDown();
       } catch (Exception e) {
@@ -79,8 +98,7 @@ class IsolationLevelTest {
     pool.shutdown();
     pool.awaitTermination(10, TimeUnit.SECONDS);
 
-    assertThat(firstRead[0]).isEqualByComparingTo("10000");
-    assertThat(secondRead[0]).isEqualByComparingTo("5000");
+    return result;
   }
 
   private long insertTestAccount(String ownerName, String balance) throws SQLException {

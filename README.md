@@ -36,7 +36,7 @@
 - [x] 프로젝트 초기 세팅 (`build.gradle`, `compose.yaml`, `application.yaml`, 패키지 스켈레톤, Testcontainers) — [`docs/LOG000-project-setup.md`](docs/LOG000-project-setup.md)
 
 ### Phase 1 — 단일 DB 트랜잭션 기초
-- [ ] 1. `@Transactional` 없는 기본 이체 구현 → 뭐가 터지는지 확인
+- [x] 1. `@Transactional` 없는 기본 이체 구현 → 뭐가 터지는지 확인 — [`docs/LOG001-chapter1.md`](docs/LOG001-chapter1.md)
 - [ ] 2. 격리 수준별 실험 (READ_UNCOMMITTED → SERIALIZABLE)
 - [ ] 3. 전파 속성 실험 (REQUIRED / REQUIRES_NEW / NESTED)
 - [ ] 4. 동시성 문제 재현 — 잔액 음수, Lost Update

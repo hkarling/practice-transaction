@@ -2,6 +2,7 @@ package io.hkarling.transaction.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForClassTypes.catchThrowable;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,6 +57,18 @@ class PropagationTest {
     Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM propagation_log", Integer.class);
     log.info("[REQUIRES_NEW] 바깥 롤백 후 남은 로그 수: {}", count);
     assertThat(count).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("NESTED 전파 속성을 시도해본다 — 기본 설정으로 되는지 확인")
+  void nestedThenFailBehavior() {
+    Throwable thrown = catchThrowable(() -> outerService.nestedThenFail("C"));
+
+    log.info("[NESTED] 던져진 예외 타입: {}", thrown.getClass().getName());
+    log.info("[NESTED] 메시지: {}", thrown.getMessage());
+
+    Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM propagation_log", Integer.class);
+    log.info("[NESTED] 바깥 롤백 후 남은 로그 수: {}", count);
   }
 
 }

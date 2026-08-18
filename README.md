@@ -39,7 +39,7 @@
 - [x] 1. `@Transactional` 없는 기본 이체 구현 → 뭐가 터지는지 확인 — [`docs/LOG001-chapter1.md`](docs/LOG001-chapter1.md)
 - [x] 2. 격리 수준별 실험 (READ_UNCOMMITTED → SERIALIZABLE) — [`docs/LOG002-chapter2.md`](docs/LOG002-chapter2.md)
 - [x] 3. 전파 속성 실험 (REQUIRED / REQUIRES_NEW / NESTED) — [`docs/LOG003-chapter3.md`](docs/LOG003-chapter3.md)
-- [ ] 4. 동시성 문제 재현 — 잔액 음수, Lost Update
+- [x] 4. 동시성 문제 재현 — 잔액 음수, Lost Update — [`docs/LOG004-chapter4.md`](docs/LOG004-chapter4.md)
 - [ ] 5. 낙관적 락 (`@Version`) + 재시도 전략
 - [ ] 6. 비관적 락 (`SELECT FOR UPDATE`) + 데드락 재현 및 해결
 

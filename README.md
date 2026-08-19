@@ -51,7 +51,7 @@
 
 ### Phase 3 — 분산 트랜잭션
 - [x] 11. 2PC 이론과 한계 — [`docs/LOG011-chapter11.md`](docs/LOG011-chapter11.md)
-- [ ] 12. SAGA Choreography
+- [x] 12. SAGA Choreography — [`docs/LOG012-chapter12.md`](docs/LOG012-chapter12.md)
 - [ ] 13. SAGA Orchestration
 - [ ] 14. Outbox 패턴
 - [ ] 15. 멱등성 설계

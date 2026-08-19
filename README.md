@@ -54,7 +54,7 @@
 - [x] 12. SAGA Choreography — [`docs/LOG012-chapter12.md`](docs/LOG012-chapter12.md)
 - [x] 13. SAGA Orchestration — [`docs/LOG013-chapter13.md`](docs/LOG013-chapter13.md)
 - [x] 14. Outbox 패턴 — [`docs/LOG014-chapter14.md`](docs/LOG014-chapter14.md)
-- [ ] 15. 멱등성 설계
+- [x] 15. 멱등성 설계 — [`docs/LOG015-chapter15.md`](docs/LOG015-chapter15.md)
 
 ### Phase 4 — 운영 관점
 - [ ] 16. 락 경합 모니터링

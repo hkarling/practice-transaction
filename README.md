@@ -41,7 +41,7 @@
 - [x] 3. 전파 속성 실험 (REQUIRED / REQUIRES_NEW / NESTED) — [`docs/LOG003-chapter3.md`](docs/LOG003-chapter3.md)
 - [x] 4. 동시성 문제 재현 — 잔액 음수, Lost Update — [`docs/LOG004-chapter4.md`](docs/LOG004-chapter4.md)
 - [x] 5. 낙관적 락 (`@Version`) + 재시도 전략 — [`docs/LOG005-chapter5.md`](docs/LOG005-chapter5.md)
-- [ ] 6. 비관적 락 (`SELECT FOR UPDATE`) + 데드락 재현 및 해결
+- [x] 6. 비관적 락 (`SELECT FOR UPDATE`) + 데드락 재현 및 해결 — [`docs/LOG006-chapter6.md`](docs/LOG006-chapter6.md)
 
 ### Phase 2 — 복잡한 비즈니스 케이스
 - [ ] 7. 이체 한도 / 일별 한도 동시성 제어

@@ -30,6 +30,9 @@ class DeadlockTest extends AbstractIntegrationTest {
   @Autowired
   private PlatformTransactionManager transactionManager;
 
+  @Autowired
+  private PessimisticTransferService pessimisticTransferService;
+
   @Test
   @DisplayName("서로 반대 순서로 락을 잡으면 데드락이 발생하고, 한쪽만 실패한다")
   void oppositeLockOrderCausesDeadlock() throws Exception {
@@ -84,4 +87,46 @@ class DeadlockTest extends AbstractIntegrationTest {
       Thread.currentThread().interrupt();
     }
   }
+
+  @Test
+  @DisplayName("락 순서를 고정하면 반대 방향 동시 이체에서도 데드락이 안 난다")
+  void consistentLockOrderPreventsDeadlock() throws Exception {
+    Account accountA = accountRepository.save(new Account("alice", new BigDecimal("10000")));
+    Account accountB = accountRepository.save(new Account("bob", new BigDecimal("10000")));
+
+    List<Exception> failures = new CopyOnWriteArrayList<>();
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    CountDownLatch readyLatch = new CountDownLatch(2);
+    CountDownLatch startLatch = new CountDownLatch(1);
+
+    pool.submit(() -> {
+      try {
+        readyLatch.countDown();
+        startLatch.await();
+        pessimisticTransferService.transfer(accountA.getId(), accountB.getId(), new BigDecimal("1000"));
+      } catch (Exception e) {
+        failures.add(e);
+      }
+    });
+
+    pool.submit(() -> {
+      try {
+        readyLatch.countDown();
+        startLatch.await();
+        pessimisticTransferService.transfer(accountB.getId(), accountA.getId(), new BigDecimal("1000"));
+      } catch (Exception e) {
+        failures.add(e);
+      }
+    });
+
+    readyLatch.await(5, TimeUnit.SECONDS);
+    startLatch.countDown();
+
+    pool.shutdown();
+    pool.awaitTermination(15, TimeUnit.SECONDS);
+
+    log.info("실패한 트랜잭션 수: {}", failures.size());
+    assertThat(failures).isEmpty();
+  }
+
 }

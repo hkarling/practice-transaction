@@ -46,7 +46,7 @@
 ### Phase 2 — 복잡한 비즈니스 케이스
 - [x] 7. 이체 한도 / 일별 한도 동시성 제어 — [`docs/LOG007-chapter7.md`](docs/LOG007-chapter7.md)
 - [x] 8. 수수료 트랜잭션 — 부분 실패 시 롤백 범위 — [`docs/LOG008-chapter8.md`](docs/LOG008-chapter8.md)
-- [ ] 9. 감사 로그 — 트랜잭션 실패해도 로그는 남아야 함 (`REQUIRES_NEW` 실전)
+- [x] 9. 감사 로그 — 트랜잭션 실패해도 로그는 남아야 함 (`REQUIRES_NEW` 실전) — [`docs/LOG009-chapter9.md`](docs/LOG009-chapter9.md)
 - [ ] 10. 이벤트 발행 타이밍 (`@TransactionalEventListener`)
 
 ### Phase 3 — 분산 트랜잭션

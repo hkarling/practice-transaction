@@ -5,7 +5,6 @@ import io.hkarling.transaction.infra.AccountRepository;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @RequiredArgsConstructor
@@ -14,7 +13,7 @@ public class FeeService {
 
   private final AccountRepository accountRepository;
 
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  @Transactional
   public void chargeFee(Long fromId, Long feeAccountId, BigDecimal fee) {
     Account from = accountRepository.findById(fromId)
         .orElseThrow(() -> new IllegalArgumentException("계좌 없음: " + fromId));

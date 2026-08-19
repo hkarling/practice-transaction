@@ -1,6 +1,9 @@
 package io.hkarling.transaction.app.saga.orchestration;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,13 +18,18 @@ public class MultiStepTransferSagaOrchestrator {
   private final OrchestratedWithdrawalService withdrawalService;
 
   public void executeTransfer(Long fromId, Long toId, Long feeAccountId, BigDecimal amount) {
+    List<Runnable> compensations = new ArrayList<>();
     try {
       feeService.chargeFee(fromId, feeAccountId, FEE);
+      compensations.add(() -> feeService.compensate(fromId, feeAccountId, FEE));
+
       withdrawalService.withdraw(fromId, amount);
+      compensations.add(() -> withdrawalService.compensate(fromId, amount));
+
       depositService.deposit(toId, amount);
     } catch (Exception e) {
-      feeService.compensate(fromId, feeAccountId, FEE);
-      withdrawalService.compensate(fromId, amount);
+      Collections.reverse(compensations);
+      compensations.forEach(Runnable::run);
       throw e;
     }
   }

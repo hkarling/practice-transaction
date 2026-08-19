@@ -35,7 +35,18 @@ class TransferEventServiceTest extends AbstractIntegrationTest {
         .isInstanceOf(IllegalStateException.class);
 
     assertThat(notificationGateway.getSentNotifications()).isEmpty();
+  }
 
+  @Test
+  @DisplayName("트랜잭션이 커밋되면 알림이 정상적으로 나간다")
+  void notificationIsSentWhenTransactionCommits() {
+    Account from = accountRepository.save(new Account("carol", new BigDecimal("10000")));
+    Account to = accountRepository.save(new Account("dave", new BigDecimal("0")));
+    int before = notificationGateway.getSentNotifications().size();
+
+    transferEventService.transferAndNotify(from.getId(), to.getId(), new BigDecimal("1000"), false);
+
+    assertThat(notificationGateway.getSentNotifications()).hasSize(before + 1);
   }
 
 }

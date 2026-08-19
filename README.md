@@ -58,7 +58,7 @@
 
 ### Phase 4 — 운영 관점
 - [x] 16. 락 경합 모니터링 — [`docs/LOG016-chapter16.md`](docs/LOG016-chapter16.md)
-- [ ] 17. 커넥션 풀 고갈 시뮬레이션 (HikariCP)
+- [x] 17. 커넥션 풀 고갈 시뮬레이션 (HikariCP) — [`docs/LOG017-chapter17.md`](docs/LOG017-chapter17.md)
 - [ ] 18. 동시성 테스트 자동화
 
 ## 로컬 실행

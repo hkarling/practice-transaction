@@ -50,7 +50,7 @@
 - [x] 10. 이벤트 발행 타이밍 (`@TransactionalEventListener`) — [`docs/LOG010-chapter10.md`](docs/LOG010-chapter10.md)
 
 ### Phase 3 — 분산 트랜잭션
-- [ ] 11. 2PC 이론과 한계
+- [x] 11. 2PC 이론과 한계 — [`docs/LOG011-chapter11.md`](docs/LOG011-chapter11.md)
 - [ ] 12. SAGA Choreography
 - [ ] 13. SAGA Orchestration
 - [ ] 14. Outbox 패턴

@@ -9,6 +9,6 @@ services:
     ports:
       - '15432:5432'
     volumes:
-      - bank-transfer-pgdata:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
 volumes:
-  bank-transfer-pgdata:
+  postgres-data:

@@ -59,7 +59,9 @@
 ### Phase 4 — 운영 관점
 - [x] 16. 락 경합 모니터링 — [`docs/LOG016-chapter16.md`](docs/LOG016-chapter16.md)
 - [x] 17. 커넥션 풀 고갈 시뮬레이션 (HikariCP) — [`docs/LOG017-chapter17.md`](docs/LOG017-chapter17.md)
-- [ ] 18. 동시성 테스트 자동화
+- [x] 18. 동시성 테스트 자동화 — [`docs/LOG018-chapter18.md`](docs/LOG018-chapter18.md)
+
+**18개 챕터 전부 완료.** `docs/LOG000`~`LOG018`에 세팅부터 마지막 챕터까지 전체 시행착오와 결정이 기록돼 있다. 전체 과정 총정리 + 인터뷰 대비 포인트는 [`docs/SUMMARY.md`](docs/SUMMARY.md) 참고.
 
 ## 로컬 실행
 ```bash

@@ -4,6 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -22,6 +23,9 @@ public class Account {
 
   private BigDecimal balance;
 
+  @Version
+  private Long version;
+
   public Account(String ownerName, BigDecimal balance) {
     this.ownerName = ownerName;
     this.balance = balance;
@@ -37,5 +41,5 @@ public class Account {
   public void deposit(BigDecimal amount) {
     balance = balance.add(amount);
   }
-  
+
 }

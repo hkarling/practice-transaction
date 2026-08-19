@@ -102,7 +102,7 @@ class IsolationLevelTest {
   }
 
   private long insertTestAccount(String ownerName, String balance) throws SQLException {
-    String sql = "INSERT INTO account (owner_name, balance) VALUES (?, ?) RETURNING id";
+    String sql = "INSERT INTO account (owner_name, balance, version) VALUES (?, ?, 0) RETURNING id";
     try (Connection conn = dataSource.getConnection();
         PreparedStatement ps = conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
       ps.setString(1, ownerName);

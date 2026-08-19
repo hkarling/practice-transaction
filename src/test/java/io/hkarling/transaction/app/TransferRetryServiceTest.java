@@ -25,21 +25,21 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Slf4j
 @Testcontainers
 @SpringBootTest
-class ConcurrentTransferTest {
+class TransferRetryServiceTest {
 
   @Container
   @ServiceConnection
   static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
 
   @Autowired
-  private TransferService transferService;
+  private TransferRetryService transferRetryService;
 
   @Autowired
   private AccountRepository accountRepository;
 
   @Test
-  @DisplayName("여러 스레드가 동시에 출금하면 Lost Update로 잔액이 안 맞을 수 있다")
-  void concurrentWithdrawalsCauseLostUpdate() throws Exception {
+  @DisplayName("재시도까지 더하면 동시 출금이 정확히, 낭비 없이 처리된다")
+  void concurrentWithdrawalsAreHandledCorrectlyWithRetry() throws Exception {
     Account from = accountRepository.save(new Account("alice", new BigDecimal("10000")));
     Account to = accountRepository.save(new Account("bob", new BigDecimal("0")));
     BigDecimal withdrawAmount = new BigDecimal("2000");
@@ -47,7 +47,7 @@ class ConcurrentTransferTest {
 
     CountDownLatch readyLatch = new CountDownLatch(threadCount);
     CountDownLatch startLatch = new CountDownLatch(1);
-    AtomicInteger successCount = new AtomicInteger();
+    AtomicInteger successCount = new AtomicInteger(0);
     List<Exception> failures = new CopyOnWriteArrayList<>();
 
     ExecutorService pool = Executors.newFixedThreadPool(threadCount);
@@ -56,7 +56,7 @@ class ConcurrentTransferTest {
         try {
           readyLatch.countDown();
           startLatch.await();
-          transferService.transfer(from.getId(), to.getId(), withdrawAmount);
+          transferRetryService.transferWithRetry(from.getId(), to.getId(), withdrawAmount);
           successCount.incrementAndGet();
         } catch (Exception e) {
           failures.add(e);
@@ -70,13 +70,14 @@ class ConcurrentTransferTest {
     pool.awaitTermination(10, TimeUnit.SECONDS);
 
     Account reloaded = accountRepository.findById(from.getId()).orElseThrow();
-    BigDecimal expectedBalance = new BigDecimal("10000")
-        .subtract(withdrawAmount.multiply(BigDecimal.valueOf(successCount.get())));
 
     log.info("성공한 출금 수: {}, 실패한 출금 수: {}", successCount.get(), failures.size());
-    log.info("기대 잔액(성공 횟수 기준): {}, 실제 잔액: {}", expectedBalance, reloaded.getBalance());
+    log.info("최종 잔액: {}", reloaded.getBalance());
+    failures.forEach(e -> log.info("실패 원인: {} - {}", e.getClass().getName(), e.getMessage()));
 
-    assertThat(reloaded.getBalance()).isEqualByComparingTo(expectedBalance);
+    assertThat(successCount.get()).isEqualTo(5);
+    assertThat(failures).hasSize(5);
+    assertThat(reloaded.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
   }
 
 }

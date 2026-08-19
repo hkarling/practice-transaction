@@ -57,7 +57,7 @@
 - [x] 15. 멱등성 설계 — [`docs/LOG015-chapter15.md`](docs/LOG015-chapter15.md)
 
 ### Phase 4 — 운영 관점
-- [ ] 16. 락 경합 모니터링
+- [x] 16. 락 경합 모니터링 — [`docs/LOG016-chapter16.md`](docs/LOG016-chapter16.md)
 - [ ] 17. 커넥션 풀 고갈 시뮬레이션 (HikariCP)
 - [ ] 18. 동시성 테스트 자동화
 

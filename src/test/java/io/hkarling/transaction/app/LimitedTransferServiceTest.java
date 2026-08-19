@@ -78,7 +78,9 @@ class LimitedTransferServiceTest extends AbstractIntegrationTest {
     log.info("일일 한도: {}, 실제 사용량: {}", LimitedTransferService.DAILY_LIMIT, reloadedUsage.getUsedAmount());
     failures.forEach(e -> log.info("실패 원인: {} - {}", e.getClass().getName(), e.getMessage()));
 
-    assertThat(successCount.get()).isLessThanOrEqualTo(5);
+    assertThat(successCount.get()).isEqualTo(5);
+    assertThat(failures).hasSize(5);
+    assertThat(reloadedUsage.getUsedAmount()).isEqualByComparingTo(LimitedTransferService.DAILY_LIMIT);
   }
 
 }

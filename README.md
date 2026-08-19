@@ -44,7 +44,7 @@
 - [x] 6. 비관적 락 (`SELECT FOR UPDATE`) + 데드락 재현 및 해결 — [`docs/LOG006-chapter6.md`](docs/LOG006-chapter6.md)
 
 ### Phase 2 — 복잡한 비즈니스 케이스
-- [ ] 7. 이체 한도 / 일별 한도 동시성 제어
+- [x] 7. 이체 한도 / 일별 한도 동시성 제어 — [`docs/LOG007-chapter7.md`](docs/LOG007-chapter7.md)
 - [ ] 8. 수수료 트랜잭션 — 부분 실패 시 롤백 범위
 - [ ] 9. 감사 로그 — 트랜잭션 실패해도 로그는 남아야 함 (`REQUIRES_NEW` 실전)
 - [ ] 10. 이벤트 발행 타이밍 (`@TransactionalEventListener`)

@@ -21,7 +21,7 @@ public class LimitedTransferService {
 
   @Transactional
   public void transfer(Long fromId, Long toId, BigDecimal amount) {
-    AccountDailyUsage usage = dailyUsageRepository.findByAccountIdAndUsageDate(fromId, LocalDate.now())
+    AccountDailyUsage usage = dailyUsageRepository.findByAccountIdAndUsageDateForUpdate(fromId, LocalDate.now())
         .orElseThrow(() -> new IllegalStateException("오늘 사용량 레코드 없음: " + fromId));
     usage.addUsage(amount, DAILY_LIMIT);
 

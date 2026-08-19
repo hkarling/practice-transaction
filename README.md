@@ -53,7 +53,7 @@
 - [x] 11. 2PC 이론과 한계 — [`docs/LOG011-chapter11.md`](docs/LOG011-chapter11.md)
 - [x] 12. SAGA Choreography — [`docs/LOG012-chapter12.md`](docs/LOG012-chapter12.md)
 - [x] 13. SAGA Orchestration — [`docs/LOG013-chapter13.md`](docs/LOG013-chapter13.md)
-- [ ] 14. Outbox 패턴
+- [x] 14. Outbox 패턴 — [`docs/LOG014-chapter14.md`](docs/LOG014-chapter14.md)
 - [ ] 15. 멱등성 설계
 
 ### Phase 4 — 운영 관점

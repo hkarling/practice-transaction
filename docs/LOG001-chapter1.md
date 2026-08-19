@@ -18,6 +18,101 @@ Spring Data JPA의 `SimpleJpaRepository`는 `save()`, `findById()` 같은 메서
 
 **`TransferServiceTest`** — 존재하지 않는 `toId`로 이체를 시도하고, 예외 발생 후 `fromAccount`의 잔액이 원래대로(`10000`)인지 검증. `Account.balance`가 `BigDecimal`이라 `assertEquals` 대신 `compareTo()`로 비교 (scale 차이로 `.equals()`가 틀리게 나올 수 있음).
 
+## 핵심 코드 (챕터 1 완료 시점)
+
+**`domain/Account.java`**
+```java
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Entity
+public class Account {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  private String ownerName;
+
+  private BigDecimal balance;
+
+  public Account(String ownerName, BigDecimal balance) {
+    this.ownerName = ownerName;
+    this.balance = balance;
+  }
+
+  public void withdraw(BigDecimal amount) {
+    if (balance.compareTo(amount) < 0) {
+      throw new IllegalStateException("잔액 부족: " + ownerName);
+    }
+    balance = balance.subtract(amount);
+  }
+
+  public void deposit(BigDecimal amount) {
+    balance = balance.add(amount);
+  }
+}
+```
+
+**`infra/AccountRepository.java`**
+```java
+public interface AccountRepository extends JpaRepository<Account, Long> {
+}
+```
+
+**`app/TransferService.java`**
+```java
+@RequiredArgsConstructor
+@Service
+public class TransferService {
+
+  private final AccountRepository accountRepository;
+
+  @Transactional
+  public void transfer(Long fromId, Long toId, BigDecimal amount) {
+    Account from = accountRepository.findById(fromId)
+        .orElseThrow(() -> new IllegalArgumentException("계좌 없음: " + fromId));
+    from.withdraw(amount);
+    accountRepository.save(from);
+
+    Account to = accountRepository.findById(toId)
+        .orElseThrow(() -> new IllegalArgumentException("계좌 없음: " + toId));
+    to.deposit(amount);
+    accountRepository.save(to);
+  }
+}
+```
+
+**`test/app/TransferServiceTest.java`**
+```java
+@Testcontainers
+@SpringBootTest
+class TransferServiceTest {
+
+  @Container
+  @ServiceConnection
+  static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
+
+  @Autowired
+  private TransferService transferService;
+
+  @Autowired
+  private AccountRepository accountRepository;
+
+  @Test
+  @DisplayName("이체 중간에 실패하면 출금액도 롤백되어야 한다")
+  void withdrawalShouldRollbackWhenTransferFailsMidway() {
+    Account from = accountRepository.save(new Account("alice", new BigDecimal("10000")));
+    Long invalidToId = 999_999L;
+
+    assertThrows(IllegalArgumentException.class,
+        () -> transferService.transfer(from.getId(), invalidToId, new BigDecimal("3000")));
+
+    Account reloaded = accountRepository.findById(from.getId()).orElseThrow();
+    assertEquals(0, reloaded.getBalance().compareTo(new BigDecimal("10000")));
+  }
+}
+```
+
 ## 재현 결과
 버그 있는 버전으로 테스트를 돌리자 실패:
 ```

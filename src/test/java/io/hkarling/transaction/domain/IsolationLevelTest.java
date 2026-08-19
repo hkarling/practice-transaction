@@ -2,6 +2,7 @@ package io.hkarling.transaction.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.hkarling.transaction.AbstractIntegrationTest;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -17,19 +18,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Slf4j
-@Testcontainers
 @SpringBootTest
-class IsolationLevelTest {
-
-  @Container
-  @ServiceConnection
-  static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
+class IsolationLevelTest extends AbstractIntegrationTest {
 
   @Autowired
   private DataSource dataSource;

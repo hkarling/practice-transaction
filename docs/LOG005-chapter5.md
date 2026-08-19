@@ -20,6 +20,154 @@ Spring Retry(`@Retryable`, 새 의존성 필요) 대신 **수동 재시도 루�
   - `ConcurrentTransferTest`(챕터 4 재사용, assertion만 수정) — `TransferService`를 재시도 없이 그대로 호출. `@Version`만으로도 **데이터 정합성은 지켜진다**는 걸 확인 (`성공 횟수 × 금액 == 실제 감소액`이 항상 성립 — 챕터 4 때와 반대로 `isEqualByComparingTo`로 "같다"를 검증).
   - `TransferRetryServiceTest`(신규) — `TransferRetryService`를 호출. 정확히 5개 성공, 5개는 진짜 잔액 부족으로 실패, 최종 잔액 정확히 0이라는 **완전히 결정론적인 결과**를 검증.
 
+## 핵심 코드 (챕터 5 완료 시점, 리팩터링 반영 전)
+
+**`domain/Account.java`** (`@Version` 필드만 추가)
+```java
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Entity
+public class Account {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  private String ownerName;
+
+  private BigDecimal balance;
+
+  @Version
+  private Long version;
+
+  public Account(String ownerName, BigDecimal balance) {
+    this.ownerName = ownerName;
+    this.balance = balance;
+  }
+
+  public void withdraw(BigDecimal amount) {
+    if (balance.compareTo(amount) < 0) {
+      throw new IllegalStateException("잔액 부족: " + ownerName);
+    }
+    balance = balance.subtract(amount);
+  }
+
+  public void deposit(BigDecimal amount) {
+    balance = balance.add(amount);
+  }
+}
+```
+
+**`app/TransferRetryService.java`** (신규)
+```java
+@Slf4j
+@RequiredArgsConstructor
+@Service
+public class TransferRetryService {
+
+  private static final int MAX_RETRY = 20;
+
+  private final TransferService transferService;
+
+  public void transferWithRetry(Long fromId, Long toId, BigDecimal amount) {
+    for (int attempt = 1; attempt <= MAX_RETRY; attempt++) {
+      try {
+        transferService.transfer(fromId, toId, amount);
+        return;
+      } catch (ObjectOptimisticLockingFailureException e) {
+        log.info("낙관적 락 충돌, 재시도 {}/{}", attempt, MAX_RETRY);
+      }
+    }
+    throw new IllegalStateException("재시도 " + MAX_RETRY + "회 초과");
+  }
+}
+```
+
+**`test/app/ConcurrentTransferTest.java`** (챕터 4 재사용, assertion만 반전)
+```java
+  @Test
+  @DisplayName("여러 스레드가 동시에 출금하면 Lost Update로 잔액이 안 맞을 수 있다")
+  void concurrentWithdrawalsCauseLostUpdate() throws Exception {
+    // ... (스레드 세팅은 챕터 4와 동일, LOG004 참고)
+
+    Account reloaded = accountRepository.findById(from.getId()).orElseThrow();
+    BigDecimal expectedBalance = new BigDecimal("10000")
+        .subtract(withdrawAmount.multiply(BigDecimal.valueOf(successCount.get())));
+
+    assertThat(reloaded.getBalance()).isEqualByComparingTo(expectedBalance); // 챕터 4: isNotEqualByComparingTo 였음
+  }
+```
+
+**`test/app/TransferRetryServiceTest.java`** (신규)
+```java
+@Slf4j
+@Testcontainers
+@SpringBootTest
+class TransferRetryServiceTest {
+
+  @Container
+  @ServiceConnection
+  static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
+
+  @Autowired
+  private TransferRetryService transferRetryService;
+
+  @Autowired
+  private AccountRepository accountRepository;
+
+  @Test
+  @DisplayName("재시도까지 더하면 동시 출금이 정확히, 낭비 없이 처리된다")
+  void concurrentWithdrawalsAreHandledCorrectlyWithRetry() throws Exception {
+    Account from = accountRepository.save(new Account("alice", new BigDecimal("10000")));
+    Account to = accountRepository.save(new Account("bob", new BigDecimal("0")));
+    BigDecimal withdrawAmount = new BigDecimal("2000");
+    int threadCount = 10;
+
+    CountDownLatch readyLatch = new CountDownLatch(threadCount);
+    CountDownLatch startLatch = new CountDownLatch(1);
+    AtomicInteger successCount = new AtomicInteger(0);
+    List<Exception> failures = new CopyOnWriteArrayList<>();
+
+    ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+    for (int i = 0; i < threadCount; i++) {
+      pool.submit(() -> {
+        try {
+          readyLatch.countDown();
+          startLatch.await();
+          transferRetryService.transferWithRetry(from.getId(), to.getId(), withdrawAmount);
+          successCount.incrementAndGet();
+        } catch (Exception e) {
+          failures.add(e);
+        }
+      });
+    }
+
+    readyLatch.await(5, TimeUnit.SECONDS);
+    startLatch.countDown();
+    pool.shutdown();
+    pool.awaitTermination(10, TimeUnit.SECONDS);
+
+    Account reloaded = accountRepository.findById(from.getId()).orElseThrow();
+
+    log.info("성공한 출금 수: {}, 실패한 출금 수: {}", successCount.get(), failures.size());
+    log.info("최종 잔액: {}", reloaded.getBalance());
+    failures.forEach(e -> log.info("실패 원인: {} - {}", e.getClass().getName(), e.getMessage()));
+
+    assertThat(successCount.get()).isEqualTo(5);
+    assertThat(failures).hasSize(5);
+    assertThat(reloaded.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+  }
+}
+```
+
+**`test/domain/IsolationLevelTest.java`의 `insertTestAccount`** (챕터 2 회귀 수정)
+```java
+  private long insertTestAccount(String ownerName, String balance) throws SQLException {
+    String sql = "INSERT INTO account (owner_name, balance, version) VALUES (?, ?, 0) RETURNING id";
+    // ... 나머지 동일
+  }
+```
+
 ## 결과
 ```
 성공한 출금 수: 5, 실패한 출금 수: 5
@@ -36,8 +184,39 @@ Spring Retry(`@Retryable`, 새 의존성 필요) 대신 **수동 재시도 루�
 **2) 챕터 5의 스키마 변경이 챕터 2 테스트를 깨뜨림**
 `Account`에 `@Version`을 추가하자 Hibernate가 `version` 컬럼을 NOT NULL로 생성. `IsolationLevelTest`(챕터 2, JPA 안 거치고 순수 JDBC로 직접 INSERT)가 `version`을 안 채워서 `PSQLException: null value in column "version" ... violates not-null constraint`로 깨짐. `insertTestAccount`의 INSERT문에 `version` 컬럼과 리터럴 `0`을 추가해서 수정. **엔티티 필드 하나 추가가 다른 챕터의 raw SQL 테스트에 영향을 줄 수 있다**는 걸 실제로 겪음 — 테스트 스위트 전체를 계속 돌려보는 습관이 왜 중요한지 보여주는 사례.
 
-## 미룬 것 — 테스트 컨테이너/컨텍스트 공유
-테스트 클래스가 6개로 늘면서, 클래스마다 `@Testcontainers`로 별도 컨테이너 + Spring 컨텍스트를 매번 새로 띄워 빌드가 느려지는 게 눈에 띔. Testcontainers의 "싱글턴 컨테이너 패턴"(공통 베이스 클래스로 컨테이너 하나 공유 + Spring 컨텍스트 캐싱 재사용)으로 개선 가능하나, 챕터 5 마무리를 우선하기로 하고 다음으로 미룸.
+## 테스트 컨테이너/컨텍스트 공유 리팩터링 (챕터 5 마무리 후 진행)
+테스트 클래스가 6개로 늘면서, 클래스마다 `@Testcontainers`로 별도 컨테이너 + Spring 컨텍스트를 매번 새로 띄워 빌드가 느려지는 게 눈에 띔. Testcontainers의 "싱글턴 컨테이너 패턴"으로 정리:
+
+**`test/AbstractIntegrationTest.java`** (신규 공통 베이스)
+```java
+public abstract class AbstractIntegrationTest {
+
+  static final PostgreSQLContainer<?> POSTGRES;
+
+  static {
+    POSTGRES = new PostgreSQLContainer<>("postgres:16");
+    POSTGRES.start();
+  }
+
+  @DynamicPropertySource
+  static void configureProperties(DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+    registry.add("spring.datasource.username", POSTGRES::getUsername);
+    registry.add("spring.datasource.password", POSTGRES::getPassword);
+  }
+
+}
+```
+컨테이너를 정적 초기화 블록에서 한 번만 띄우고 `stop()`을 안 부름 — JVM 종료 시 Testcontainers의 Ryuk이 정리. 6개 테스트 클래스 전부 `@Testcontainers`/`@Container`/`@ServiceConnection`/자체 `PostgreSQLContainer` 필드를 지우고 `extends AbstractIntegrationTest`로 교체:
+```java
+@SpringBootTest
+class TransferServiceTest extends AbstractIntegrationTest {
+  // ...
+}
+```
+같은 커넥션 정보를 모든 테스트가 공유하게 되면서, Spring의 ApplicationContext 캐싱도 같이 적용됨 (컨테이너뿐 아니라 Spring 컨텍스트 자체도 재사용).
+
+**효과**: `./gradlew clean test` 기준 `Creating container for image: postgres:16` 로그가 6번 → **1번**으로 줄음. 전체 빌드 시간도 체감상 확실히 단축.
 
 ## 완료 체크리스트
 - [x] `Account`에 `@Version` 추가
@@ -45,7 +224,8 @@ Spring Retry(`@Retryable`, 새 의존성 필요) 대신 **수동 재시도 루�
 - [x] `ConcurrentTransferTest` — `@Version`만으로 데이터 정합성 유지됨을 확인
 - [x] `TransferRetryServiceTest` — 재시도까지 더해 완전히 결정론적인 결과 확인
 - [x] 챕터 2 회귀(`IsolationLevelTest`의 `version` NOT NULL 위반) 수정
-- [x] 이 로그 문서 작성
+- [x] 테스트 컨테이너/Spring 컨텍스트 공유 리팩터링 (`AbstractIntegrationTest`)
+- [x] 이 로그 문서 작성 (핵심 코드 스냅샷 포함)
 
 ## ADR
 
@@ -67,5 +247,5 @@ Spring Retry(`@Retryable`, 새 의존성 필요) 대신 **수동 재시도 루�
 - 다른 엔티티 필드 변경 시에도 raw SQL을 쓰는 테스트(`IsolationLevelTest` 등)에 영향이 없는지 항상 전체 테스트를 돌려 확인해야 한다는 걸 재확인.
 
 **Follow-ups**
-- 테스트 컨테이너/Spring 컨텍스트 공유 리팩터링 (싱글턴 컨테이너 패턴) — 다음 챕터 시작 전이나 여유 있을 때 진행.
 - 챕터 6(비관적 락)에서 같은 문제를 `SELECT FOR UPDATE`로 풀어보고 낙관적 락과 트레이드오프 비교.
+- 새 테스트 클래스를 추가할 땐 `AbstractIntegrationTest`를 상속하는 걸 기본으로 한다 (개별 `@Testcontainers` 세팅 반복 금지).

@@ -13,6 +13,70 @@
 ## 구현
 `ConcurrentTransferTest` — 잔액 10000인 계좌에서 10개 스레드가 동시에 2000씩 출금 시도. `CountDownLatch` 두 개(`readyLatch`/`startLatch`)로 모든 스레드가 최대한 동시에 출발하도록 강제. 성공 횟수 기준 "이론상 맞아야 할 잔액"과 실제 DB 잔액이 다르다는 걸 assert (`isNotEqualByComparingTo`) — 다르다는 것 자체가 Lost Update의 증거.
 
+## 핵심 코드 (챕터 4 완료 시점)
+
+**`test/app/ConcurrentTransferTest.java`**
+```java
+@Slf4j
+@Testcontainers
+@SpringBootTest
+class ConcurrentTransferTest {
+
+  @Container
+  @ServiceConnection
+  static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
+
+  @Autowired
+  private TransferService transferService;
+
+  @Autowired
+  private AccountRepository accountRepository;
+
+  @Test
+  @DisplayName("여러 스레드가 동시에 출금하면 Lost Update로 잔액이 안 맞을 수 있다")
+  void concurrentWithdrawalsCauseLostUpdate() throws Exception {
+    Account from = accountRepository.save(new Account("alice", new BigDecimal("10000")));
+    Account to = accountRepository.save(new Account("bob", new BigDecimal("0")));
+    BigDecimal withdrawAmount = new BigDecimal("2000");
+    int threadCount = 10;
+
+    CountDownLatch readyLatch = new CountDownLatch(threadCount);
+    CountDownLatch startLatch = new CountDownLatch(1);
+    AtomicInteger successCount = new AtomicInteger();
+    List<Exception> failures = new CopyOnWriteArrayList<>();
+
+    ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+    for (int i = 0; i < threadCount; i++) {
+      pool.submit(() -> {
+        try {
+          readyLatch.countDown();
+          startLatch.await();
+          transferService.transfer(from.getId(), to.getId(), withdrawAmount);
+          successCount.incrementAndGet();
+        } catch (Exception e) {
+          failures.add(e);
+        }
+      });
+    }
+
+    readyLatch.await(5, TimeUnit.SECONDS);
+    startLatch.countDown();
+    pool.shutdown();
+    pool.awaitTermination(10, TimeUnit.SECONDS);
+
+    Account reloaded = accountRepository.findById(from.getId()).orElseThrow();
+    BigDecimal expectedBalance = new BigDecimal("10000")
+        .subtract(withdrawAmount.multiply(BigDecimal.valueOf(successCount.get())));
+
+    log.info("성공한 출금 수: {}, 실패한 출금 수: {}", successCount.get(), failures.size());
+    log.info("기대 잔액(성공 횟수 기준): {}, 실제 잔액: {}", expectedBalance, reloaded.getBalance());
+
+    assertThat(reloaded.getBalance()).isNotEqualByComparingTo(expectedBalance);
+  }
+}
+```
+(주의: `isNotEqualByComparingTo`를 쓰는 이 버전은 챕터 4 시점의 "버그 재현" 코드다. 챕터 5에서 `@Version` 도입 후 `TransferService`를 재시도 없이 그대로 호출하면 데이터 정합성 자체는 지켜지도록 바뀌어서, assertion이 `isEqualByComparingTo`로 반대로 바뀐다 — [`LOG005`](LOG005-chapter5.md) 참고.)
+
 ## 재현 결과
 ```
 성공한 출금 수: 10, 실패한 출금 수: 0

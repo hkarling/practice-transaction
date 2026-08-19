@@ -121,7 +121,7 @@ logging:
 - `app/` — 유스케이스/애플리케이션 서비스, 트랜잭션 경계(`@Transactional`)
 - `infra/` — Spring Data JPA 리포지토리, 설정 클래스, 외부 연동
 
-**`ApplicationTests.java`**
+**`ApplicationTests.java`** (세팅 당시 최초 버전 — 테스트 클래스마다 자기만의 컨테이너를 띄우는 방식)
 ```java
 package io.hkarling.transaction;
 
@@ -146,6 +146,37 @@ class ApplicationTests {
 
 }
 ```
+
+### 테스트 컨벤션 — 컨테이너 중복 방지 (챕터 5에서 리팩터링됨)
+위 방식대로 테스트 클래스마다 `@Testcontainers` + `@Container` + 자체 `PostgreSQLContainer`를 선언하면, 테스트 클래스가 늘어날수록 **클래스 수만큼 컨테이너와 Spring 컨텍스트가 매번 새로 기동**된다. 챕터 5에서 테스트 클래스가 6개로 늘면서 빌드가 눈에 띄게 느려져 리팩터링함 (자세한 경위는 [`LOG005`](LOG005-chapter5.md) 참고).
+
+**최종 컨벤션**: 새 통합 테스트 클래스는 위 방식 대신 `io.hkarling.transaction.AbstractIntegrationTest`를 상속한다.
+```java
+public abstract class AbstractIntegrationTest {
+
+  static final PostgreSQLContainer<?> POSTGRES;
+
+  static {
+    POSTGRES = new PostgreSQLContainer<>("postgres:16");
+    POSTGRES.start();
+  }
+
+  @DynamicPropertySource
+  static void configureProperties(DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+    registry.add("spring.datasource.username", POSTGRES::getUsername);
+    registry.add("spring.datasource.password", POSTGRES::getPassword);
+  }
+
+}
+```
+```java
+@SpringBootTest
+class SomeNewTest extends AbstractIntegrationTest {
+  // @Testcontainers / @Container / @ServiceConnection / 자체 PostgreSQLContainer 필드 불필요
+}
+```
+컨테이너를 정적 초기화 블록에서 한 번만 띄우고 `stop()`을 호출하지 않는다 (JVM 종료 시 Testcontainers의 Ryuk이 정리). 모든 테스트가 같은 커넥션 정보를 공유하게 되므로, Spring의 ApplicationContext 캐싱도 함께 적용되어 컨텍스트 재기동까지 줄어든다. `./gradlew clean test` 기준 컨테이너 기동 횟수가 6회 → 1회로 줄었음을 확인.
 
 ## 완료 체크리스트
 - [x] `docker compose up -d` 기동, 포트 매핑(`0.0.0.0:15432->5432/tcp`) 확인

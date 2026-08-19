@@ -14,6 +14,122 @@
 - `PropagationOuterService`(바깥) — 안쪽 메서드를 호출한 뒤 의도적으로 `RuntimeException`을 던짐.
 - `PropagationTest` — `@BeforeEach`에서 `CREATE TABLE IF NOT EXISTS`로 테이블 준비(JPA 엔티티가 아니라 ddl-auto가 안 만들어줌), 각 전파 속성별로 바깥 실패 후 로그가 몇 개 남았는지 확인. `@Slf4j`로 삽입 시점과 최종 개수를 로그로 관찰 (테스트 파일에 `showStandardStreams` 설정은 챕터 2에서 이미 적용됨).
 
+## 핵심 코드 (챕터 3 완료 시점)
+
+**`app/PropagationDemoService.java`**
+```java
+@Slf4j
+@RequiredArgsConstructor
+@Service
+public class PropagationDemoService {
+
+  private final JdbcTemplate jdbcTemplate;
+
+  @Transactional(propagation = Propagation.REQUIRED)
+  public void logRequired(String message) {
+    jdbcTemplate.update("INSERT INTO propagation_log(message) VALUES (?)", "REQUIRED: " + message);
+    log.info("[REQUIRED] 삽입 완료: {}", message);
+  }
+
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void logRequiresNew(String message) {
+    jdbcTemplate.update("INSERT INTO propagation_log(message) VALUES (?)", "REQUIRED_NEW: " + message);
+    log.info("[REQUIRES_NEW] 삽입 완료: {}", message);
+  }
+
+  @Transactional(propagation = Propagation.NESTED)
+  public void logNested(String message) {
+    jdbcTemplate.update("INSERT INTO propagation_log(message) VALUES (?)", "NESTED: " + message);
+    log.info("[NESTED] 삽입 완료: {}", message);
+  }
+}
+```
+(참고: `logRequiresNew`의 INSERT 문자열이 `"REQUIRED_NEW: "`로 오타 — 로그 저장용 문자열이라 테스트의 개수 검증에는 영향 없어 그대로 남아있음.)
+
+**`app/PropagationOuterService.java`**
+```java
+@RequiredArgsConstructor
+@Service
+public class PropagationOuterService {
+
+  private final PropagationDemoService propagationDemoService;
+
+  @Transactional
+  public void requiredThenFail(String message) {
+    propagationDemoService.logRequired(message);
+    throw new RuntimeException("의도적 실패");
+  }
+
+  @Transactional
+  public void requiresNewThenFail(String message) {
+    propagationDemoService.logRequiresNew(message);
+    throw new RuntimeException("의도적 실패");
+  }
+
+  @Transactional
+  public void nestedThenFail(String message) {
+    propagationDemoService.logNested(message);
+    throw new RuntimeException("의도적 실패");
+  }
+}
+```
+
+**`test/app/PropagationTest.java`**
+```java
+@Slf4j
+@Testcontainers
+@SpringBootTest
+class PropagationTest {
+
+  @Container
+  @ServiceConnection
+  static PostgreSQLContainer<?> postgres = new PostgreSQLContainer("postgres:16");
+
+  @Autowired
+  private PropagationOuterService outerService;
+
+  @Autowired
+  private JdbcTemplate jdbcTemplate;
+
+  @BeforeEach
+  void setUp() {
+    jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS propagation_log (id BIGSERIAL PRIMARY KEY, message VARCHAR(255))");
+    jdbcTemplate.update("DELETE FROM propagation_log");
+  }
+
+  @Test
+  @DisplayName("REQUIRED는 바깥 트랜잭션에 합류해서, 바깥이 롤백되면 같이 롤백된다")
+  void requiredJoinsOuterTransactionAndRollsBackTogether() {
+    assertThatThrownBy(() -> outerService.requiredThenFail("A"))
+        .isInstanceOf(RuntimeException.class);
+
+    Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM propagation_log", Integer.class);
+    log.info("[REQUIRED] 바깥 롤백 후 남은 로그 수: {}", count);
+    assertThat(count).isZero();
+  }
+
+  @Test
+  @DisplayName("REQUIRES_NEW는 독립된 트랜잭션이라 바깥이 롤백돼도 살아남는다")
+  void requiresNewSurvivesOuterRollback() {
+    assertThatThrownBy(() -> outerService.requiresNewThenFail("B"))
+        .isInstanceOf(RuntimeException.class);
+
+    Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM propagation_log", Integer.class);
+    log.info("[REQUIRES_NEW] 바깥 롤백 후 남은 로그 수: {}", count);
+    assertThat(count).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("JPA 환경에서는 NESTED가 근본적으로 지원되지 않는다")
+  void nestedIsNotSupportedInJpaEnvironment() {
+    assertThatThrownBy(() -> outerService.nestedThenFail("C"))
+        .isInstanceOf(NestedTransactionNotSupportedException.class);
+  }
+
+}
+```
+(`TransactionManagerConfig.java`는 3차 시도 때 만들었다가 효과가 없어 삭제됐으므로 최종 코드에는 없다.)
+
 ## 결과 — REQUIRED / REQUIRES_NEW
 ```
 [REQUIRED]      삽입 완료 → 바깥 롤백 후 남은 로그 수: 0

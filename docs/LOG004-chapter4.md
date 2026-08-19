@@ -15,7 +15,7 @@
 
 ## 핵심 코드 (챕터 4 완료 시점)
 
-**`test/app/ConcurrentTransferTest.java`**
+**`test/app/transfer/ConcurrentTransferTest.java`** (챕터 7 이후 `app.transfer` 하위로 이동 — 자세한 경위는 `LOG007` 참고)
 ```java
 @Slf4j
 @Testcontainers

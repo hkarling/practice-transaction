@@ -1,4 +1,4 @@
-package io.hkarling.transaction.app;
+package io.hkarling.transaction.app.transfer;
 
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package io.hkarling.transaction.app;
+package io.hkarling.transaction.app.transfer;
 
 import io.hkarling.transaction.domain.Account;
 import io.hkarling.transaction.infra.AccountRepository;

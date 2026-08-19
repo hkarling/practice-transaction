@@ -58,7 +58,7 @@ public interface AccountDailyUsageRepository extends JpaRepository<AccountDailyU
 }
 ```
 
-**`app/LimitedTransferService.java`** (최종 — 사용량/계좌 둘 다 비관적 락)
+**`app/transfer/LimitedTransferService.java`** (최종 — 사용량/계좌 둘 다 비관적 락)
 ```java
 @RequiredArgsConstructor
 @Service
@@ -144,4 +144,12 @@ assertThat(reloadedUsage.getUsedAmount()).isEqualByComparingTo(LimitedTransferSe
 **Follow-ups**
 - `LimitedTransferService`의 3중 락 조합에 대한 데드락 가능성 검토 (챕터 6 기법 재적용 여부).
 - `AccountDailyUsage` 최초 레코드 생성(그날 첫 이체) 시의 INSERT 경쟁은 아직 안 다룸 — 필요시 후속 챕터에서.
-- `app` 패키지가 커져서 하위 패키지 분리 예정(챕터 7 마무리 후, 다음 세션에서 진행) — 문서(LOG001~007)의 코드 스니펫 경로도 함께 갱신 필요.
+
+## 부록 — `app` 패키지 분리 (챕터 7 마무리 후 진행)
+`app`에 클래스가 6개(`TransferService`/`TransferRetryService`/`PessimisticTransferService`/`LimitedTransferService`/`PropagationDemoService`/`PropagationOuterService`)로 늘어나서, 성격별로 하위 패키지 분리:
+- **`app.transfer`** — `TransferService`, `TransferRetryService`, `PessimisticTransferService`, `LimitedTransferService` (+ 대응 테스트) — 전부 "이체"라는 같은 기능의 변형/확장.
+- **`app.propagation`** — `PropagationDemoService`, `PropagationOuterService` (+ `PropagationTest`) — 챕터 3의 일회성 학습용 데모, 실제 비즈니스 기능이 아님.
+
+`git mv`로 파일 물리 이동 + 패키지 선언만 수정 (로직 변경 없음). `app/package-info.java`는 `io.hkarling.transaction.app` 자체의 역할 설명이라 그대로 유지. 앞으로 새 기능(감사로그, 이벤트, SAGA, Outbox 등)이 추가될 때도 필요한 만큼만 그때그때 하위 패키지를 만들기로 함 — 지금 전체 taxonomy를 미리 설계하지 않음.
+
+기존 `docs/LOG001`, `LOG003`, `LOG004`, `LOG005`, `LOG006`의 코드 스니펫 경로 표기도 새 경로(`app/transfer/...`, `app/propagation/...`)로 갱신하고, 각 위치에 "챕터 7 이후 이동됨" 각주를 남겨 이력 추적이 되게 함.

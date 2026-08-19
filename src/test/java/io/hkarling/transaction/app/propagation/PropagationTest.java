@@ -1,4 +1,4 @@
-package io.hkarling.transaction.app;
+package io.hkarling.transaction.app.propagation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

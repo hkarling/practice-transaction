@@ -1,4 +1,4 @@
-package io.hkarling.transaction.app;
+package io.hkarling.transaction.app.transfer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -21,17 +21,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @Slf4j
 @SpringBootTest
-class TransferRetryServiceTest extends AbstractIntegrationTest {
+class ConcurrentTransferTest extends AbstractIntegrationTest {
 
   @Autowired
-  private TransferRetryService transferRetryService;
+  private TransferService transferService;
 
   @Autowired
   private AccountRepository accountRepository;
 
   @Test
-  @DisplayName("재시도까지 더하면 동시 출금이 정확히, 낭비 없이 처리된다")
-  void concurrentWithdrawalsAreHandledCorrectlyWithRetry() throws Exception {
+  @DisplayName("여러 스레드가 동시에 출금하면 Lost Update로 잔액이 안 맞을 수 있다")
+  void concurrentWithdrawalsCauseLostUpdate() throws Exception {
     Account from = accountRepository.save(new Account("alice", new BigDecimal("10000")));
     Account to = accountRepository.save(new Account("bob", new BigDecimal("0")));
     BigDecimal withdrawAmount = new BigDecimal("2000");
@@ -39,7 +39,7 @@ class TransferRetryServiceTest extends AbstractIntegrationTest {
 
     CountDownLatch readyLatch = new CountDownLatch(threadCount);
     CountDownLatch startLatch = new CountDownLatch(1);
-    AtomicInteger successCount = new AtomicInteger(0);
+    AtomicInteger successCount = new AtomicInteger();
     List<Exception> failures = new CopyOnWriteArrayList<>();
 
     ExecutorService pool = Executors.newFixedThreadPool(threadCount);
@@ -48,7 +48,7 @@ class TransferRetryServiceTest extends AbstractIntegrationTest {
         try {
           readyLatch.countDown();
           startLatch.await();
-          transferRetryService.transferWithRetry(from.getId(), to.getId(), withdrawAmount);
+          transferService.transfer(from.getId(), to.getId(), withdrawAmount);
           successCount.incrementAndGet();
         } catch (Exception e) {
           failures.add(e);
@@ -62,14 +62,13 @@ class TransferRetryServiceTest extends AbstractIntegrationTest {
     pool.awaitTermination(10, TimeUnit.SECONDS);
 
     Account reloaded = accountRepository.findById(from.getId()).orElseThrow();
+    BigDecimal expectedBalance = new BigDecimal("10000")
+        .subtract(withdrawAmount.multiply(BigDecimal.valueOf(successCount.get())));
 
     log.info("성공한 출금 수: {}, 실패한 출금 수: {}", successCount.get(), failures.size());
-    log.info("최종 잔액: {}", reloaded.getBalance());
-    failures.forEach(e -> log.info("실패 원인: {} - {}", e.getClass().getName(), e.getMessage()));
+    log.info("기대 잔액(성공 횟수 기준): {}, 실제 잔액: {}", expectedBalance, reloaded.getBalance());
 
-    assertThat(successCount.get()).isEqualTo(5);
-    assertThat(failures).hasSize(5);
-    assertThat(reloaded.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+    assertThat(reloaded.getBalance()).isEqualByComparingTo(expectedBalance);
   }
 
 }

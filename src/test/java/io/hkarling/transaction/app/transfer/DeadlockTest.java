@@ -1,4 +1,4 @@
-package io.hkarling.transaction.app;
+package io.hkarling.transaction.app.transfer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

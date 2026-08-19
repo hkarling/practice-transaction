@@ -58,7 +58,7 @@ public class Account {
 }
 ```
 
-**`app/TransferRetryService.java`** (신규)
+**`app/transfer/TransferRetryService.java`** (신규, 챕터 7 이후 `app.transfer` 하위로 이동)
 ```java
 @Slf4j
 @RequiredArgsConstructor
@@ -83,7 +83,7 @@ public class TransferRetryService {
 }
 ```
 
-**`test/app/ConcurrentTransferTest.java`** (챕터 4 재사용, assertion만 반전)
+**`test/app/transfer/ConcurrentTransferTest.java`** (챕터 4 재사용, assertion만 반전)
 ```java
   @Test
   @DisplayName("여러 스레드가 동시에 출금하면 Lost Update로 잔액이 안 맞을 수 있다")
@@ -98,7 +98,7 @@ public class TransferRetryService {
   }
 ```
 
-**`test/app/TransferRetryServiceTest.java`** (신규)
+**`test/app/transfer/TransferRetryServiceTest.java`** (신규)
 ```java
 @Slf4j
 @Testcontainers

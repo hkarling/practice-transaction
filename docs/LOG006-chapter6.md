@@ -25,7 +25,7 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 ```
 (처음엔 `@Param("id")` 없이 작성했는데도 컴파일러의 `-parameters` 옵션 덕분에 문제없이 동작했음 — 다만 컴파일 옵션에 의존하는 방식이라 취약할 수 있어, 명시적으로 `@Param("id")`를 붙여 확실하게 고정함.)
 
-**`app/PessimisticTransferService.java`** — 락 순서 고정 전/후 비교
+**`app/transfer/PessimisticTransferService.java`** — 락 순서 고정 전/후 비교 (챕터 7 이후 `app.transfer` 하위로 이동)
 
 | | 락 순서 고정 **전** (데드락 재현 당시) | 락 순서 고정 **후** (최종) |
 |---|---|---|
@@ -70,9 +70,9 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
   }
 ```
 
-**`test/app/PessimisticTransferServiceTest.java`** — 10스레드 동시 출금, 재시도 없이도 정확한지 확인 (챕터 5의 `TransferRetryServiceTest`와 동일한 구조, `transferRetryService.transferWithRetry` 대신 `pessimisticTransferService.transfer` 직접 호출).
+**`test/app/transfer/PessimisticTransferServiceTest.java`** — 10스레드 동시 출금, 재시도 없이도 정확한지 확인 (챕터 5의 `TransferRetryServiceTest`와 동일한 구조, `transferRetryService.transferWithRetry` 대신 `pessimisticTransferService.transfer` 직접 호출).
 
-**`test/app/DeadlockTest.java`** — 두 개의 테스트:
+**`test/app/transfer/DeadlockTest.java`** — 두 개의 테스트:
 ```java
   @Test
   @DisplayName("서로 반대 순서로 락을 잡으면 데드락이 발생하고, 한쪽만 실패한다")

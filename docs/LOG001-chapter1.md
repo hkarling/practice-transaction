@@ -59,7 +59,7 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 }
 ```
 
-**`app/TransferService.java`**
+**`app/transfer/TransferService.java`** (챕터 7 이후 `app.transfer` 하위로 이동 — 자세한 경위는 `LOG007` 참고)
 ```java
 @RequiredArgsConstructor
 @Service
@@ -82,7 +82,7 @@ public class TransferService {
 }
 ```
 
-**`test/app/TransferServiceTest.java`**
+**`test/app/transfer/TransferServiceTest.java`**
 ```java
 @Testcontainers
 @SpringBootTest

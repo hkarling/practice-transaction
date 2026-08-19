@@ -1,4 +1,4 @@
-package io.hkarling.transaction.app;
+package io.hkarling.transaction.app.transfer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -21,36 +21,35 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @Slf4j
 @SpringBootTest
-class PessimisticTransferServiceTest extends AbstractIntegrationTest {
+class TransferRetryServiceTest extends AbstractIntegrationTest {
 
   @Autowired
-  private PessimisticTransferService transferService;
+  private TransferRetryService transferRetryService;
 
   @Autowired
   private AccountRepository accountRepository;
 
   @Test
-  @DisplayName("비관적 락은 재시도 없이도 동시 출금을 정확히 처리한다")
-  void concurrentWithdrawalsAreHandledCorrectlyWithPessimisticLock() throws Exception {
+  @DisplayName("재시도까지 더하면 동시 출금이 정확히, 낭비 없이 처리된다")
+  void concurrentWithdrawalsAreHandledCorrectlyWithRetry() throws Exception {
     Account from = accountRepository.save(new Account("alice", new BigDecimal("10000")));
     Account to = accountRepository.save(new Account("bob", new BigDecimal("0")));
     BigDecimal withdrawAmount = new BigDecimal("2000");
-    int theadCount = 10;
+    int threadCount = 10;
 
-    CountDownLatch readyLatch = new CountDownLatch(theadCount);
+    CountDownLatch readyLatch = new CountDownLatch(threadCount);
     CountDownLatch startLatch = new CountDownLatch(1);
-    AtomicInteger successCount = new AtomicInteger();
+    AtomicInteger successCount = new AtomicInteger(0);
     List<Exception> failures = new CopyOnWriteArrayList<>();
 
-    ExecutorService pool = Executors.newFixedThreadPool(theadCount);
-
-    for (int i = 0; i < theadCount; i++) {
+    ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+    for (int i = 0; i < threadCount; i++) {
       pool.submit(() -> {
         try {
           readyLatch.countDown();
           startLatch.await();
-          transferService.transfer(from.getId(), to.getId(), withdrawAmount);
-          successCount.getAndIncrement();
+          transferRetryService.transferWithRetry(from.getId(), to.getId(), withdrawAmount);
+          successCount.incrementAndGet();
         } catch (Exception e) {
           failures.add(e);
         }
@@ -72,4 +71,5 @@ class PessimisticTransferServiceTest extends AbstractIntegrationTest {
     assertThat(failures).hasSize(5);
     assertThat(reloaded.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
   }
+
 }

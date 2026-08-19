@@ -16,7 +16,7 @@
 
 ## 핵심 코드 (챕터 3 완료 시점)
 
-**`app/PropagationDemoService.java`**
+**`app/propagation/PropagationDemoService.java`** (챕터 7 이후 `app.propagation` 하위로 이동 — 자세한 경위는 `LOG007` 참고)
 ```java
 @Slf4j
 @RequiredArgsConstructor
@@ -46,7 +46,7 @@ public class PropagationDemoService {
 ```
 (참고: `logRequiresNew`의 INSERT 문자열이 `"REQUIRED_NEW: "`로 오타 — 로그 저장용 문자열이라 테스트의 개수 검증에는 영향 없어 그대로 남아있음.)
 
-**`app/PropagationOuterService.java`**
+**`app/propagation/PropagationOuterService.java`**
 ```java
 @RequiredArgsConstructor
 @Service
@@ -74,7 +74,7 @@ public class PropagationOuterService {
 }
 ```
 
-**`test/app/PropagationTest.java`**
+**`test/app/propagation/PropagationTest.java`**
 ```java
 @Slf4j
 @Testcontainers

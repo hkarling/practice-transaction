@@ -13,7 +13,12 @@ public class TransferSagaOrchestrator {
 
   public void executeTransfer(Long fromId, Long toId, BigDecimal amount) {
     withdrawalService.withdraw(fromId, amount);
-    depositService.deposit(toId, amount);
+    try {
+      depositService.deposit(toId, amount);
+    } catch (Exception e) {
+      withdrawalService.compensate(fromId, amount);
+      throw e;
+    }
   }
 
 }
